@@ -1,8 +1,8 @@
 # %%
-from audio_dspy.hysteresis import Hysteresis
 import numpy as np
 import matplotlib.pyplot as plt
 import audio_dspy as adsp
+from audio_dspy import Hysteresis
 
 FS = 96000
 
