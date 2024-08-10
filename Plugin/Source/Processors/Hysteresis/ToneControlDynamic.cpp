@@ -1,17 +1,14 @@
-#include "ToneControl.h"
+#include "ToneControlDynamic.h"
 
 namespace
 {
-constexpr double slewTime = 0.05;
-constexpr float transFreq = 500.0f;
-constexpr attackTime = 0.01f;    // Attack time for the envelope detector
-constexpr releaseTime = 0.1f;    // Release time for the envelope detector
-
+    constexpr double slewTime = 0.05;
+    constexpr float transFreq = 500.0f;
 } // namespace
 
-ToneStage::ToneStage() = default;
+ToneStageDynamic::ToneStageDynamic() = default;
 
-void ToneStage::prepare (double sampleRate, int numChannels)
+void ToneStageDynamic::prepare (double sampleRate, int numChannels)
 {
     fs = (float) sampleRate;
 
@@ -34,6 +31,8 @@ void ToneStage::prepare (double sampleRate, int numChannels)
 
         tone[ch].reset();
         tone[ch].calcCoefs (lowGain[ch].getTargetValue(), highGain[ch].getTargetValue(), tFreq[ch].getTargetValue(), fs);
+
+        envelopeFollower.prepareToPlay(sampleRate);  // Prepare the EnvelopeFollower
     }
 }
 
@@ -46,11 +45,11 @@ void setSmoothValues (std::vector<SmoothGain>& values, float newValue)
         smoothedVal.setTargetValue (newValue);
 }
 
-void ToneStage::setLowGain (float lowGainDB) { setSmoothValues (lowGain, Decibels::decibelsToGain (lowGainDB)); }
-void ToneStage::setHighGain (float highGainDB) { setSmoothValues (highGain, Decibels::decibelsToGain (highGainDB)); }
-void ToneStage::setTransFreq (float newTFreq) { setSmoothValues (tFreq, newTFreq); }
+void ToneStageDynamic::setLowGain (float lowGainDB) { setSmoothValues (lowGain, Decibels::decibelsToGain (lowGainDB)); }
+void ToneStageDynamic::setHighGain (float highGainDB) { setSmoothValues (highGain, Decibels::decibelsToGain (highGainDB)); }
+void ToneStageDynamic::setTransFreq (float newTFreq) { setSmoothValues (tFreq, newTFreq); }
 
-void ToneStage::processBlock (AudioBuffer<float>& buffer)
+void ToneStageDynamic::processBlock (AudioBuffer<float>& buffer)
 {
     const auto numChannels = buffer.getNumChannels();
     const auto numSamples = buffer.getNumSamples();
@@ -58,23 +57,30 @@ void ToneStage::processBlock (AudioBuffer<float>& buffer)
     for (size_t ch = 0; ch < (size_t) numChannels; ++ch)
     {
         auto* data = buffer.getWritePointer ((int) ch);
-        if (lowGain[ch].isSmoothing() || highGain[ch].isSmoothing() || tFreq[ch].isSmoothing())
+        for (int n = 0; n < numSamples; ++n)
         {
-            for (int n = 0; n < numSamples; ++n)
-            {
-                tone[ch].calcCoefs (lowGain[ch].getNextValue(), highGain[ch].getNextValue(), tFreq[ch].getNextValue(), fs);
-                data[n] = tone[ch].processSample (data[n]);
-            }
-        }
-        else
-        {
-            tone[ch].processBlock (data, numSamples);
+            float env = envelopeFollower.processSample(data[n]);
+            tone[ch].calcCoefs (lowGain[ch].getNextValue(), highGain[ch].getNextValue(), tFreq[ch].getNextValue(), fs);
+
+            // Apply dynamic gain control based on the envelope
+            if (lowGain[ch].getTargetValue() > 0.0f)
+                lowGain[ch].setTargetValue(lowGain[ch].getTargetValue() + 0.1f * lowGain[ch].getTargetValue() * env);
+            else
+                lowGain[ch].setTargetValue(lowGain[ch].getTargetValue() - 0.1f * lowGain[ch].getTargetValue() * env);
+
+            if (highGain[ch].getTargetValue() > 0.0f)
+                highGain[ch].setTargetValue(highGain[ch].getTargetValue() + 0.1f * highGain[ch].getTargetValue() * env);
+            else
+                highGain[ch].setTargetValue(highGain[ch].getTargetValue() - 0.1f * highGain[ch].getTargetValue() * env);
+
+            data[n] = tone[ch].processSample(data[n]);
         }
     }
 }
 
 //===================================================
-ToneControl::ToneControl (AudioProcessorValueTreeState& vts)
+
+ToneControlDynamic::ToneControlDynamic (AudioProcessorValueTreeState& vts)
 {
     using namespace chowdsp::ParamUtils;
     loadParameterPointer (bassParam, vts, "h_bass");
@@ -83,7 +89,7 @@ ToneControl::ToneControl (AudioProcessorValueTreeState& vts)
     onOffParam = vts.getRawParameterValue ("tone_onoff");
 }
 
-void ToneControl::createParameterLayout (std::vector<std::unique_ptr<RangedAudioParameter>>& params)
+void ToneControlDynamic::createParameterLayout (std::vector<std::unique_ptr<RangedAudioParameter>>& params)
 {
     NormalisableRange freqRange { 100.0f, 4000.0f };
     freqRange.setSkewForCentre (transFreq);
@@ -95,13 +101,13 @@ void ToneControl::createParameterLayout (std::vector<std::unique_ptr<RangedAudio
     createFreqParameter (params, "h_tfreq", "Tone Transition Frequency", 100.0f, 4000.0f, transFreq, transFreq);
 }
 
-void ToneControl::prepare (double sampleRate, int numChannels)
+void ToneControlDynamic::prepare (double sampleRate, int numChannels)
 {
     toneIn.prepare (sampleRate, numChannels);
     toneOut.prepare (sampleRate, numChannels);
 }
 
-void ToneControl::processBlockIn (AudioBuffer<float>& buffer)
+void ToneControlDynamic::processBlockIn (AudioBuffer<float>& buffer)
 {
     if (static_cast<bool> (onOffParam->load()))
     {
@@ -118,7 +124,7 @@ void ToneControl::processBlockIn (AudioBuffer<float>& buffer)
     toneIn.processBlock (buffer);
 }
 
-void ToneControl::processBlockOut (AudioBuffer<float>& buffer)
+void ToneControlDynamic::processBlockOut (AudioBuffer<float>& buffer)
 {
     if (static_cast<bool> (onOffParam->load()))
     {
@@ -133,73 +139,4 @@ void ToneControl::processBlockOut (AudioBuffer<float>& buffer)
     toneOut.setTransFreq (tFreqParam->getCurrentValue());
 
     toneOut.processBlock (buffer);
-}
-
-// Constants for envelope detection
-const float attackTime = 0.01f;    // Attack time for the envelope detector
-const float releaseTime = 0.1f;    // Release time for the envelope detector
-
-ToneControl::ToneControl()
-    : lowAmount(0.0f), highAmount(0.0f),
-      lowEnv(0.0f), highEnv(0.0f),
-      lowBaseGain(1.0f), highBaseGain(1.0f),
-      dynamicAmountLow(0.0f), dynamicAmountHigh(0.0f)  // Initialize new dynamic EQ parameters
-{
-    // Initialize filters and other components as needed
-}
-
-void ToneControl::setLowAmount(float amount) {
-    lowAmount = amount;
-}
-
-void ToneControl::setHighAmount(float amount) {
-    highAmount = amount;
-}
-
-// New functions to set dynamic EQ modulation amounts
-void ToneControlDynamic::setDynamicAmountLow(float amount) {
-    dynamicAmountLow = amount;
-}
-
-void ToneControlDynamic::setDynamicAmountHigh(float amount) {
-    dynamicAmountHigh = amount;
-}
-
-float ToneControl::detectEnvelope(float input, float currentEnv) {
-    float rectified = fabs(input);
-    if (rectified > currentEnv)
-        return attackTime * (rectified - currentEnv) + currentEnv;
-    else
-        return releaseTime * (rectified - currentEnv) + currentEnv;
-}
-
-void ToneControl::process(float* input, float* output, int numSamples) {
-    for (int i = 0; i < numSamples; ++i) {
-        // Process the input signal through the low and high band filters
-        float lowSample = lowBandFilter.process(input[i]);
-        float highSample = highBandFilter.process(input[i]);
-
-        // Detect envelope for each band
-        lowEnv = detectEnvelope(lowSample, lowEnv);
-        highEnv = detectEnvelope(highSample, highEnv);
-
-        // Modulate the gain based on the envelope and the dynamic amount parameters
-        float lowBandGain = lowBaseGain + (dynamicAmountLow * lowEnv);
-        float highBandGain = highBaseGain + (dynamicAmountHigh * highEnv);
-
-        // Apply the gain modulation
-        lowSample *= pow(10.0f, lowBandGain / 20.0f);
-        highSample *= pow(10.0f, highBandGain / 20.0f);
-
-        // Combine bands back into the output
-        output[i] = lowSample + highSample;
-    }
-}
-
-void ToneControl::setLowBaseGain(float gain) {
-    lowBaseGain = gain;
-}
-
-void ToneControl::setHighBaseGain(float gain) {
-    highBaseGain = gain;
 }

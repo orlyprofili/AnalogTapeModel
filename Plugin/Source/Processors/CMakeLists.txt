@@ -8,6 +8,8 @@ target_sources(CHOWTapeModel PRIVATE
     Hysteresis/HysteresisSTN.cpp
     Hysteresis/STNModel.cpp
     Hysteresis/ToneControl.cpp
+    Hysteresis/ToneControlDynamic.cpp
+    Hysteresis/EnvelopeFollower.cpp
 
     Input_Filters/InputFilters.cpp
     Loss_Effects/AzimuthProc.cpp
