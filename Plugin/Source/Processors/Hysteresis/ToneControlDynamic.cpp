@@ -60,18 +60,27 @@ void ToneStageDynamic::processBlock (AudioBuffer<float>& buffer)
         for (int n = 0; n < numSamples; ++n)
         {
             float env = envelopeFollower.processSample(data[n]);
-            tone[ch].calcCoefs (lowGain[ch].getNextValue(), highGain[ch].getNextValue(), tFreq[ch].getNextValue(), fs);
 
-            // Apply dynamic gain control based on the envelope
-            if (lowGain[ch].getTargetValue() > 0.0f)
-                lowGain[ch].setTargetValue(lowGain[ch].getTargetValue() + 0.1f * lowGain[ch].getTargetValue() * env);
-            else
-                lowGain[ch].setTargetValue(lowGain[ch].getTargetValue() - 0.1f * lowGain[ch].getTargetValue() * env);
+            // Apply dynamic gain control based on the envelope, but without modifying the original smoothed values
+            float dynamicLowGain = lowGain[ch].getNextValue();
+            float dynamicHighGain = highGain[ch].getNextValue();
 
-            if (highGain[ch].getTargetValue() > 0.0f)
-                highGain[ch].setTargetValue(highGain[ch].getTargetValue() + 0.1f * highGain[ch].getTargetValue() * env);
+            if (dynamicLowGain > 0.0f)
+                dynamicLowGain += 0.1f * dynamicLowGain * env;
             else
-                highGain[ch].setTargetValue(highGain[ch].getTargetValue() - 0.1f * highGain[ch].getTargetValue() * env);
+                dynamicLowGain -= 0.1f * dynamicLowGain * env;
+
+            if (dynamicHighGain > 0.0f)
+                dynamicHighGain += 0.1f * dynamicHighGain * env;
+            else
+                dynamicHighGain -= 0.1f * dynamicHighGain * env;
+
+            // Cap the dynamic gain to avoid runaway
+            dynamicLowGain = jlimit(-12.0f, 12.0f, dynamicLowGain);  // Adjust these limits as needed
+            dynamicHighGain = jlimit(-12.0f, 12.0f, dynamicHighGain); // Adjust these limits as needed
+
+            // Recalculate coefficients with dynamic gains applied
+            tone[ch].calcCoefs(dynamicLowGain, dynamicHighGain, tFreq[ch].getNextValue(), fs);
 
             data[n] = tone[ch].processSample(data[n]);
         }
