@@ -176,7 +176,7 @@ void ChowtapeModelAudioProcessor::processAudioBlock (AudioBuffer<float>& buffer)
     toneControlDynamic.processBlockIn (buffer);
     compressionProcessor.processBlock (buffer);
     hysteresis.processBlock (buffer);
-    toneControlDynamic.processBlockOut (buffer);
+    //toneControlDynamic.processBlockOut (buffer);
     chewer.processBlock (buffer);
     degrade.processBlock (buffer);
     flutter.processBlock (buffer);

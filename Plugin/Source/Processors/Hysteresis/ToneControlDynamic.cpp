@@ -65,15 +65,8 @@ void ToneStageDynamic::processBlock (AudioBuffer<float>& buffer)
             float dynamicLowGain = lowGain[ch].getNextValue();
             float dynamicHighGain = highGain[ch].getNextValue();
 
-            if (dynamicLowGain > 0.0f)
-                dynamicLowGain += 0.1f * dynamicLowGain * env;
-            else
-                dynamicLowGain -= 0.1f * dynamicLowGain * env;
-
-            if (dynamicHighGain > 0.0f)
-                dynamicHighGain += 0.1f * dynamicHighGain * env;
-            else
-                dynamicHighGain -= 0.1f * dynamicHighGain * env;
+            dynamicLowGain += 0.5f * dynamicLowGain * env;
+            dynamicHighGain += 0.5f * dynamicHighGain * env;
 
             // Cap the dynamic gain to avoid runaway
             dynamicLowGain = jlimit(-12.0f, 12.0f, dynamicLowGain);  // Adjust these limits as needed
