@@ -61,14 +61,15 @@ void ToneStageDynamic::processBlock (AudioBuffer<float>& buffer)
         {
             float env = envelopeFollower.processSample(data[n]);
 
-            // Apply dynamic gain control based on the envelope, but without modifying the original smoothed values
+            // Apply dynamic gain control based on the envelope
+            // TODO: Should be two separate envelopes whos coeffs should be changed to reflect the band they are working on
             float dynamicLowGain = lowGain[ch].getNextValue();
             float dynamicHighGain = highGain[ch].getNextValue();
 
             dynamicLowGain += 0.5f * dynamicLowGain * env;
             dynamicHighGain += 0.5f * dynamicHighGain * env;
 
-            // Cap the dynamic gain to avoid runaway
+            // 
             dynamicLowGain = jlimit(-12.0f, 12.0f, dynamicLowGain);  // Adjust these limits as needed
             dynamicHighGain = jlimit(-12.0f, 12.0f, dynamicHighGain); // Adjust these limits as needed
 
