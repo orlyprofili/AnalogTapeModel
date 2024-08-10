@@ -38,7 +38,7 @@ const String dryWetTag = "drywet";
 //==============================================================================
 ChowtapeModelAudioProcessor::ChowtapeModelAudioProcessor() : inputFilters (vts),
                                                              midSideController (vts),
-                                                             toneControl (vts),
+                                                             toneControlDynamic (vts),
                                                              compressionProcessor (vts),
                                                              hysteresis (vts),
                                                              degrade (vts),
@@ -66,9 +66,9 @@ ChowtapeModelAudioProcessor::ChowtapeModelAudioProcessor() : inputFilters (vts),
 
     PluginHostType hostType;
     if (hostType.isRenoise()) // Renoise has different gain staging, so we handle that here
-        toneControl.setDBScale (12.0f);
+        toneControlDynamic.setDBScale (12.0f);
     else
-        toneControl.setDBScale (18.0f);
+        toneControlDynamic.setDBScale (18.0f);
 }
 
 void ChowtapeModelAudioProcessor::addParameters (Parameters& params)
@@ -79,7 +79,7 @@ void ChowtapeModelAudioProcessor::addParameters (Parameters& params)
     createPercentParameter (params, dryWetTag, "Dry/Wet", 1.0f);
 
     InputFilters::createParameterLayout (params);
-    ToneControl::createParameterLayout (params);
+    ToneControlDynamic::createParameterLayout (params);
     CompressionProcessor::createParameterLayout (params);
     HysteresisProcessor::createParameterLayout (params);
     LossFilter::createParameterLayout (params);
@@ -98,7 +98,7 @@ void ChowtapeModelAudioProcessor::prepareToPlay (double sampleRate, int samplesP
     inGain.prepareToPlay (sampleRate, samplesPerBlock);
     inputFilters.prepareToPlay (sampleRate, samplesPerBlock, numChannels);
     midSideController.prepare (sampleRate, samplesPerBlock);
-    toneControl.prepare (sampleRate, numChannels);
+    toneControlDynamic.prepare (sampleRate, numChannels);
     compressionProcessor.prepare (sampleRate, samplesPerBlock, numChannels);
     hysteresis.prepareToPlay (sampleRate, samplesPerBlock, numChannels);
     degrade.prepareToPlay (sampleRate, samplesPerBlock, numChannels);
@@ -173,10 +173,10 @@ void ChowtapeModelAudioProcessor::processAudioBlock (AudioBuffer<float>& buffer)
     scope->pushSamplesIO (buffer, TapeScope::AudioType::Input);
 
     midSideController.processInput (buffer);
-    toneControl.processBlockIn (buffer);
+    toneControlDynamic.processBlockIn (buffer);
     compressionProcessor.processBlock (buffer);
     hysteresis.processBlock (buffer);
-    toneControl.processBlockOut (buffer);
+    toneControlDynamic.processBlockOut (buffer);
     chewer.processBlock (buffer);
     degrade.processBlock (buffer);
     flutter.processBlock (buffer);

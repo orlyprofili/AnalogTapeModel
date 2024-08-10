@@ -5,9 +5,9 @@
 
 namespace
 {
-    constexpr float defaultAttackTimeMs = 10.0f; // Default attack time in milliseconds
-    constexpr float defaultReleaseTimeMs = 100.0f; // Default release time in milliseconds
-    constexpr float defaultSignalDependence = 1.5f; // Default signal dependence parameter
+    //constexpr float defaultAttackTimeMs = 10.0f; // Default attack time in milliseconds
+    //constexpr float defaultReleaseTimeMs = 100.0f; // Default release time in milliseconds
+    //constexpr float defaultSignalDependence = 1.5f; // Default signal dependence parameter
     constexpr float convergenceThreshold = 1.0e-3f; // Convergence threshold for the iterative solver
     constexpr int maxIterations = 100; // Maximum iterations for Newton-Raphson solver
 } // namespace

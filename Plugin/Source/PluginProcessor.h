@@ -20,7 +20,7 @@
 #include "Processors/DryWetProcessor.h"
 #include "Processors/GainProcessor.h"
 #include "Processors/Hysteresis/HysteresisProcessor.h"
-#include "Processors/Hysteresis/ToneControl.h"
+#include "Processors/Hysteresis/ToneControlDynamic.h"
 #include "Processors/Input_Filters/InputFilters.h"
 #include "Processors/Loss_Effects/LossFilter.h"
 #include "Processors/MidSide/MidSideProcessor.h"
@@ -76,7 +76,7 @@ private:
     GainProcessor inGain;
     InputFilters inputFilters;
     MidSideProcessor midSideController;
-    ToneControl toneControl;
+    ToneControlDynamic toneControlDynamic;
     CompressionProcessor compressionProcessor;
     HysteresisProcessor hysteresis;
     DegradeProcessor degrade;
